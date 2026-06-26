@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
 
 from .auth import requiere_admin, usuario_actual
 from .db import conexion, dict_cursor, esperar_bd, init_schema, sembrar_eventos
@@ -63,18 +64,17 @@ class ResolverRequest(BaseModel):
 
 @app.get("/livez")
 def livez():
-    """Liveness: el proceso está vivo. No depende de la BD."""
-    return {"status": "ok"}
-
+    return {"status": "ok", "service": "apuestas-service"}
 
 @app.get("/readyz")
 def readyz():
-    """Readiness: ¿puede recibir tráfico? Verifica la conexión a PostgreSQL."""
-    from .db import ping
-
-    if ping():
-        return {"status": "ready", "db": "up"}
-    raise HTTPException(status_code=503, detail="DB no disponible")
+    try:
+        with conexion() as conn:
+            with dict_cursor(conn) as cur:
+                cur.execute("SELECT 1")
+        return {"status": "ready", "service": "apuestas-service"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "not ready", "error": str(e)})
 
 
 @app.get("/api/apuestas/eventos")
