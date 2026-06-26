@@ -61,10 +61,20 @@ class ResolverRequest(BaseModel):
     resultado: str = Field(description="local | empate | visita")
 
 
-# TODO (alumno): implementar las rutas de salud que usará Kubernetes:
-#   - liveness: ¿el proceso está vivo? (respuesta simple).
-#   - readiness: ¿está listo para recibir tráfico? Debe verificar la BD.
-# Luego configurar livenessProbe/readinessProbe en el Deployment de EKS.
+@app.get("/livez")
+def livez():
+    """Liveness: el proceso está vivo. No depende de la BD."""
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+def readyz():
+    """Readiness: ¿puede recibir tráfico? Verifica la conexión a PostgreSQL."""
+    from .db import ping
+
+    if ping():
+        return {"status": "ready", "db": "up"}
+    raise HTTPException(status_code=503, detail="DB no disponible")
 
 
 @app.get("/api/apuestas/eventos")
